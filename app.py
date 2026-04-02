@@ -1,12 +1,9 @@
 """
 IFT-2R Generator (wariant 12)
-Aplikacja Streamlit do generowania pliku XML IFT-2R na podstawie JPK_FA.
-
-Abacus Centrum Księgowe | Marcin
+Aplikacja Streamlit — Abacus Centrum Księgowe
 """
 
 import streamlit as st
-import io
 from decimal import Decimal
 from datetime import date, datetime
 
@@ -15,87 +12,145 @@ from ift2r_generator import generuj_xml, SEKCJE_D
 from gus_api import pobierz_dane_nip
 from kontrahenci import KONTRAHENCI, szukaj_kontrahenta
 
-# ─── KONFIGURACJA STRONY ────────────────────────────────────────────────────
+# ─── KONFIGURACJA ───────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="Generator IFT-2R",
+    page_title="Generator IFT-2R | Abacus",
     page_icon="🧾",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-# ─── STYL ───────────────────────────────────────────────────────────────────
+# ─── STYL — identyczny jak Informacja Dodatkowa ─────────────────────────────
 st.markdown("""
 <style>
+/* ── Sidebar ── */
 [data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #1a2744 0%, #0f1e3d 100%);
-    color: #fff;
+    background-color: #f0f2f6;
+    border-right: 1px solid #d0d5e0;
 }
-[data-testid="stSidebar"] .stMarkdown, [data-testid="stSidebar"] label {
-    color: #d0d9f0 !important;
+[data-testid="stSidebar"] .stMarkdown p,
+[data-testid="stSidebar"] label,
+[data-testid="stSidebar"] .stRadio label {
+    color: #1a2744 !important;
+    font-size: 0.88rem;
 }
-[data-testid="stSidebar"] .stTextInput > div > input {
-    background: #253565;
+[data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {
+    color: #1a2744 !important;
+}
+
+/* ── Główny nagłówek ── */
+.abacus-header {
+    background: linear-gradient(135deg, #1a2744 0%, #2d4a8a 60%, #1a3a6b 100%);
+    padding: 1.4rem 2rem;
+    border-radius: 12px;
+    margin-bottom: 1.8rem;
     color: white;
-    border: 1px solid #3a4f80;
 }
+.abacus-header h1 {
+    margin: 0 0 0.3rem 0;
+    font-size: 1.6rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: white !important;
+}
+.abacus-header p {
+    margin: 0;
+    font-size: 0.88rem;
+    opacity: 0.82;
+    color: white !important;
+}
+.abacus-header .badge {
+    display: inline-block;
+    background: rgba(255,255,255,0.18);
+    border: 1px solid rgba(255,255,255,0.35);
+    border-radius: 20px;
+    padding: 2px 12px;
+    font-size: 0.78rem;
+    margin-top: 0.6rem;
+    color: white;
+}
+
+/* ── Zakładki ── */
 .stTabs [data-baseweb="tab-list"] {
-    gap: 4px;
+    gap: 2px;
+    background: #f0f2f6;
+    border-radius: 8px;
+    padding: 4px;
 }
 .stTabs [data-baseweb="tab"] {
-    background: #f5f7fa;
-    border-radius: 6px 6px 0 0;
-    padding: 8px 18px;
-    font-size: 0.85rem;
+    border-radius: 6px;
+    padding: 6px 16px;
+    font-size: 0.83rem;
+    font-weight: 500;
+    color: #4a5568;
+    background: transparent;
 }
 .stTabs [aria-selected="true"] {
     background: #1a2744 !important;
     color: white !important;
 }
-.header-box {
-    background: linear-gradient(90deg, #1a2744 0%, #2d4a8a 100%);
-    padding: 1.2rem 1.5rem;
-    border-radius: 10px;
-    color: white;
-    margin-bottom: 1.5rem;
-}
-.header-box h2 { margin: 0; font-size: 1.4rem; font-weight: 600; }
-.header-box p  { margin: 0.3rem 0 0; font-size: 0.85rem; opacity: 0.8; }
+
+/* ── Karty sekcji ── */
 .sekcja-card {
     background: #f8f9fb;
-    border: 1px solid #e0e4ed;
+    border: 1px solid #e2e6ef;
     border-left: 4px solid #2d4a8a;
     border-radius: 6px;
-    padding: 1rem 1.2rem;
-    margin-bottom: 0.8rem;
+    padding: 0.75rem 1rem;
+    margin-bottom: 0.6rem;
+    font-size: 0.87rem;
+    color: #1a2744;
 }
-.kwota-total {
-    font-size: 1.3rem;
+.info-box {
+    background: #eef3fd;
+    border: 1px solid #c3d3f5;
+    border-radius: 8px;
+    padding: 0.8rem 1rem;
+    font-size: 0.84rem;
+    color: #1a2744;
+    margin-bottom: 1rem;
+}
+.warn-box {
+    background: #fff8e6;
+    border: 1px solid #f5d87a;
+    border-radius: 8px;
+    padding: 0.8rem 1rem;
+    font-size: 0.84rem;
+    color: #7a5200;
+    margin-bottom: 1rem;
+}
+.kontrahent-card {
+    background: #eef3fd;
+    border: 1px solid #c3d3f5;
+    border-radius: 8px;
+    padding: 0.7rem 1rem;
+    margin-bottom: 0.8rem;
+    font-size: 0.85rem;
+}
+.kwota-big {
+    font-size: 1.4rem;
     font-weight: 700;
     color: #1a2744;
 }
-.tag-zagr {
-    display: inline-block;
-    background: #e8f0fe;
-    color: #1a56db;
-    border-radius: 12px;
-    padding: 2px 10px;
-    font-size: 0.78rem;
-    font-weight: 600;
+
+/* ── Sidebar search ── */
+[data-testid="stSidebar"] input {
+    background: white !important;
+    border: 1px solid #c8d0e0 !important;
+    border-radius: 6px !important;
+    font-size: 0.85rem !important;
 }
 </style>
 """, unsafe_allow_html=True)
 
-# ─── INICJALIZACJA STANU ────────────────────────────────────────────────────
-def init_state():
+# ─── STAN APLIKACJI ─────────────────────────────────────────────────────────
+def _init():
     defaults = {
-        # JPK
-        "jpk_wyniki": [],           # lista WynikParsowania z wczytanych plików
-        "grupy_kontrahentow": {},   # zagregowane dane wg kontrahenta
-        # Dane formularza
+        "jpk_wyniki": [],
+        "grupy_kontrahentow": {},
         "cel_zlozenia": 1,
         "okres_od": f"{date.today().year - 1}-01-01",
         "okres_do": f"{date.today().year - 1}-12-31",
-        # Płatnik
         "platnik_nip": "",
         "platnik_nazwa": "",
         "platnik_regon": "",
@@ -108,7 +163,6 @@ def init_state():
         "platnik_nr_lokalu": "",
         "platnik_miejscowosc": "",
         "platnik_kod": "",
-        # Podatnik
         "podatnik_nazwa": "",
         "podatnik_kraj": "",
         "podatnik_id": "",
@@ -117,9 +171,7 @@ def init_state():
         "podatnik_nr_domu": "",
         "podatnik_miejscowosc": "",
         "podatnik_kod": "",
-        # Sekcje D
-        "sekcje": [],               # lista słowników z wpisami sekcji D
-        # Informacje
+        "sekcje": [],
         "liczba_miesiecy": 12,
         "data_wniosku": "",
         "data_przekazania": "",
@@ -127,31 +179,29 @@ def init_state():
         "podpisujacy_nazwisko": "",
         "email": "",
         "telefon": "",
-        # Aktywny kontrahent
         "aktywny_klucz": None,
-        # Klucz GUS
-        "klucz_gus": "",
+        "_aktywny_slownik_klucz": None,
+        "xml_wygenerowany": None,
     }
     for k, v in defaults.items():
         if k not in st.session_state:
             st.session_state[k] = v
 
-init_state()
+_init()
 
 
 def _wczytaj_z_slownika(klucz: str):
-    """Wczytuje dane kontrahenta ze słownika do session_state."""
-    dane = KONTRAHENCI.get(klucz)
-    if not dane:
+    d = KONTRAHENCI.get(klucz)
+    if not d:
         return
-    st.session_state.podatnik_nazwa = dane["podatnik_nazwa"]
-    st.session_state.podatnik_kraj = dane["podatnik_kraj"]
-    st.session_state.podatnik_id = dane["podatnik_id"]
-    st.session_state.podatnik_rodzaj_id = dane["podatnik_rodzaj_id"]
-    st.session_state.podatnik_ulica = dane.get("podatnik_ulica", "")
-    st.session_state.podatnik_nr_domu = dane.get("podatnik_nr_domu", "")
-    st.session_state.podatnik_miejscowosc = dane.get("podatnik_miejscowosc", "")
-    st.session_state.podatnik_kod = dane.get("podatnik_kod", "")
+    st.session_state.podatnik_nazwa = d["podatnik_nazwa"]
+    st.session_state.podatnik_kraj = d["podatnik_kraj"]
+    st.session_state.podatnik_id = d["podatnik_id"]
+    st.session_state.podatnik_rodzaj_id = d["podatnik_rodzaj_id"]
+    st.session_state.podatnik_ulica = d.get("podatnik_ulica", "")
+    st.session_state.podatnik_nr_domu = d.get("podatnik_nr_domu", "")
+    st.session_state.podatnik_miejscowosc = d.get("podatnik_miejscowosc", "")
+    st.session_state.podatnik_kod = d.get("podatnik_kod", "")
     st.session_state["_aktywny_slownik_klucz"] = klucz
 
 
@@ -159,157 +209,150 @@ def _wczytaj_z_slownika(klucz: str):
 # SIDEBAR
 # ═══════════════════════════════════════════════════════════════════════════
 with st.sidebar:
-    st.markdown("## 🧾 IFT-2R Generator")
-    st.markdown("---")
+    st.markdown("### 🏢 NIP Płatnika")
 
-    # ── GUS API klucz ──
-    with st.expander("⚙️ Ustawienia API GUS", expanded=False):
-        klucz_gus = st.text_input(
-            "Klucz API GUS (BIR)",
-            value=st.session_state.klucz_gus,
-            type="password",
-            help="Klucz do API REGON GUS. Testowy klucz działa bez rejestracji.",
-            key="_klucz_gus_input",
-        )
-        st.session_state.klucz_gus = klucz_gus
-
-    st.markdown("### 📋 NIP Płatnika")
     nip_input = st.text_input(
-        "NIP płatnika (Twój klient)",
+        "NIP płatnika",
         value=st.session_state.platnik_nip,
         placeholder="0000000000",
-        key="_nip_sidebar",
+        label_visibility="collapsed",
     )
 
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("🔍 Pobierz z GUS", use_container_width=True):
-            nip_clean = nip_input.replace("-", "").replace(" ", "")
-            klucz = st.session_state.klucz_gus or "abcde12345abcde12345"
-            with st.spinner("Pobieranie danych..."):
-                dane_gus = pobierz_dane_nip(nip_clean, klucz)
-            if "blad" in dane_gus:
-                st.error(dane_gus["blad"])
-            else:
-                st.session_state.platnik_nip = nip_clean
-                st.session_state.platnik_nazwa = dane_gus.get("nazwa", "")
-                st.session_state.platnik_regon = dane_gus.get("regon", "")
-                st.session_state.platnik_wojewodztwo = dane_gus.get("wojewodztwo", "")
-                st.session_state.platnik_powiat = dane_gus.get("powiat", "")
-                st.session_state.platnik_gmina = dane_gus.get("gmina", "")
-                st.session_state.platnik_ulica = dane_gus.get("ulica", "")
-                st.session_state.platnik_nr_domu = dane_gus.get("nr_nieruchomosci", "")
-                st.session_state.platnik_nr_lokalu = dane_gus.get("nr_lokalu", "")
-                st.session_state.platnik_miejscowosc = dane_gus.get("miejscowosc", "")
-                st.session_state.platnik_kod = dane_gus.get("kod_pocztowy", "")
-                st.success(f"✅ {dane_gus.get('nazwa', '')}")
-    with col2:
-        if st.button("💾 Wpisz ręcznie", use_container_width=True):
-            st.session_state.platnik_nip = nip_input
+    if st.button("🔍 Pobierz dane z MF API", use_container_width=True, type="primary"):
+        nip_clean = nip_input.replace("-", "").replace(" ", "")
+        with st.spinner("Pobieranie danych..."):
+            wynik_mf = pobierz_dane_nip(nip_clean)
+        if "blad" in wynik_mf:
+            st.error(wynik_mf["blad"])
+        else:
+            st.session_state.platnik_nip = nip_clean
+            st.session_state.platnik_nazwa = wynik_mf.get("nazwa", "")
+            st.session_state.platnik_regon = wynik_mf.get("regon", "")
+            st.session_state.platnik_ulica = wynik_mf.get("ulica", "")
+            st.session_state.platnik_nr_domu = wynik_mf.get("nr_nieruchomosci", "")
+            st.session_state.platnik_nr_lokalu = wynik_mf.get("nr_lokalu", "")
+            st.session_state.platnik_miejscowosc = wynik_mf.get("miejscowosc", "")
+            st.session_state.platnik_kod = wynik_mf.get("kod_pocztowy", "")
+            st.success(f"✅ {wynik_mf.get('nazwa', '')}")
 
+    if nip_input and nip_input != st.session_state.platnik_nip:
+        if st.button("Zapisz NIP ręcznie", use_container_width=True):
+            st.session_state.platnik_nip = nip_input.replace("-", "").replace(" ", "")
+
+    # ── JPK_FA ──────────────────────────────────────────────────────────
     st.markdown("---")
-    st.markdown("### 📂 Wczytaj pliki JPK_FA")
-    uploaded_files = st.file_uploader(
-        "Wybierz pliki JPK_FA (XML)",
+    st.markdown("### 📂 Pliki JPK_FA")
+
+    uploaded = st.file_uploader(
+        "Wybierz pliki XML",
         type=["xml"],
         accept_multiple_files=True,
-        key="_jpk_upload",
+        label_visibility="collapsed",
     )
 
-    if uploaded_files:
+    if uploaded:
         if st.button("📥 Wczytaj i parsuj", use_container_width=True, type="primary"):
-            wszystkie_faktury = []
-            bledy_suma = []
-            for uf in uploaded_files:
+            wszystkie_faktury, bledy_sum = [], []
+            for uf in uploaded:
                 content = uf.read().decode("utf-8", errors="replace")
-                wynik = parsuj_jpk_fa(content, uf.name)
-                bledy_suma.extend(wynik.bledy)
-                wszystkie_faktury.extend(wynik.faktury)
-                if wynik.platnik_nip and not st.session_state.platnik_nip:
-                    st.session_state.platnik_nip = wynik.platnik_nip
-                    st.session_state.platnik_nazwa = wynik.platnik_nazwa
+                w = parsuj_jpk_fa(content, uf.name)
+                bledy_sum.extend(w.bledy)
+                wszystkie_faktury.extend(w.faktury)
+                if w.platnik_nip and not st.session_state.platnik_nip:
+                    st.session_state.platnik_nip = w.platnik_nip
+                    st.session_state.platnik_nazwa = w.platnik_nazwa
 
-            # Zbiorczy wynik
-            zbiorczy = WynikParsowania()
-            zbiorczy.faktury = wszystkie_faktury
-            zbiorczy.bledy = bledy_suma
-            st.session_state.jpk_wyniki = [zbiorczy]
-            st.session_state.grupy_kontrahentow = grupuj_wg_kontrahenta(zbiorczy)
-
+            zb = WynikParsowania()
+            zb.faktury = wszystkie_faktury
+            zb.bledy = bledy_sum
+            st.session_state.jpk_wyniki = [zb]
+            st.session_state.grupy_kontrahentow = grupuj_wg_kontrahenta(zb)
             lf = len(wszystkie_faktury)
             lk = len(st.session_state.grupy_kontrahentow)
-            st.success(f"✅ {lf} fakt. | {lk} kontr.")
-            if bledy_suma:
-                for b in bledy_suma:
-                    st.warning(b)
+            st.success(f"✅ {lf} faktur | {lk} kontrahentów")
+            for b in bledy_sum:
+                st.warning(b)
 
-    # ── Kontrahenci z JPK_FA ─────────────────────────────────────────────
+    # ── Kontrahenci z JPK ────────────────────────────────────────────────
     grupy = st.session_state.grupy_kontrahentow
     if grupy:
         st.markdown("---")
         st.markdown("### 👥 Z pliku JPK_FA")
         for klucz, g in grupy.items():
-            n = g["liczba_faktur"]
             kw = g["suma_netto"]
-            kraj = g["sprzedawca_kraj"]
-            skrot = g["sprzedawca_nazwa"][:22] + "…" if len(g["sprzedawca_nazwa"]) > 22 else g["sprzedawca_nazwa"]
-            lbl = f"{skrot} [{kraj}]\n{n} fakt | {kw:.2f} PLN"
-            if st.button(lbl, key=f"sel_{klucz}", use_container_width=True):
+            skrot = g["sprzedawca_nazwa"][:24] + "…" if len(g["sprzedawca_nazwa"]) > 24 else g["sprzedawca_nazwa"]
+            lbl = f"{skrot}\n[{g['sprzedawca_kraj']}] {g['liczba_faktur']} fakt. · {kw:.2f} PLN"
+            if st.button(lbl, key=f"jpk_{klucz}", use_container_width=True):
                 st.session_state.aktywny_klucz = klucz
-                g2 = grupy[klucz]
-                slownik_klucz = f"{g2['sprzedawca_id']}@{g2['sprzedawca_kraj']}"
-                if slownik_klucz in KONTRAHENCI:
-                    _wczytaj_z_slownika(slownik_klucz)
+                sl_k = f"{g['sprzedawca_id']}@{g['sprzedawca_kraj']}"
+                if sl_k in KONTRAHENCI:
+                    _wczytaj_z_slownika(sl_k)
                 else:
-                    st.session_state.podatnik_nazwa = g2["sprzedawca_nazwa"]
-                    st.session_state.podatnik_kraj = g2["sprzedawca_kraj"]
-                    st.session_state.podatnik_id = g2["sprzedawca_id"]
-                    st.session_state.podatnik_miejscowosc = ""
+                    st.session_state.podatnik_nazwa = g["sprzedawca_nazwa"]
+                    st.session_state.podatnik_kraj = g["sprzedawca_kraj"]
+                    st.session_state.podatnik_id = g["sprzedawca_id"]
+                    st.session_state["_aktywny_slownik_klucz"] = None
 
-    # ── Słownik predefiniowanych kontrahentów ────────────────────────────
+    # ── Słownik kontrahentów ─────────────────────────────────────────────
     st.markdown("---")
     st.markdown("### 📖 Słownik kontrahentów")
-    szukaj = st.text_input("🔎 Szukaj", placeholder="np. Google, Meta, Microsoft…", key="_szukaj_kont")
-    wyniki_slownika = szukaj_kontrahenta(szukaj)
-
-    for s_klucz, s_dane in wyniki_slownika:
-        logo = s_dane.get("logo", "🌍")
-        skrot = s_dane["nazwa_skrot"]
-        kraj = s_dane["podatnik_kraj"]
-        lbl = f"{logo} {skrot} [{kraj}]"
-        if st.button(lbl, key=f"dict_{s_klucz}", use_container_width=True):
-            _wczytaj_z_slownika(s_klucz)
+    szukaj = st.text_input(
+        "Szukaj kontrahenta",
+        placeholder="Google, Meta, LinkedIn…",
+        label_visibility="collapsed",
+        key="_szukaj",
+    )
+    for s_k, s_d in szukaj_kontrahenta(szukaj):
+        lbl = f"{s_d.get('logo','🌍')} {s_d['nazwa_skrot']} [{s_d['podatnik_kraj']}]"
+        if st.button(lbl, key=f"sl_{s_k}", use_container_width=True):
+            _wczytaj_z_slownika(s_k)
             st.session_state.aktywny_klucz = None
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# GŁÓWNA TREŚĆ
+# NAGŁÓWEK
 # ═══════════════════════════════════════════════════════════════════════════
 st.markdown("""
-<div class="header-box">
-  <h2>🧾 Generator IFT-2R (wariant 12)</h2>
-  <p>Informacja o przychodach podatnika CIT nierezydenta — obowiązuje od 01.01.2026 (dochody od 2025 r.)</p>
+<div class="abacus-header">
+  <h1>🧾 Generator IFT-2R</h1>
+  <p>Informacja o przychodach podatnika CIT niemającego siedziby w Polsce (wariant 12)</p>
+  <span class="badge">Obowiązuje od 01.01.2026 · dochody od 2025 r.</span>
 </div>
 """, unsafe_allow_html=True)
 
+# Aktywny kontrahent — pasek informacyjny
+sk = st.session_state.get("_aktywny_slownik_klucz")
+if sk and sk in KONTRAHENCI:
+    sd = KONTRAHENCI[sk]
+    uwaga = sd.get("uwaga", "")
+    st.markdown(
+        f'<div class="kontrahent-card">'
+        f'{sd.get("logo","🌍")} <b>{sd["podatnik_nazwa"]}</b> [{sd["podatnik_kraj"]}] · '
+        f'ID: <code>{sd["podatnik_id"]}</code> · domyślna sekcja: <b>{sd["domyslna_sekcja"]}</b>'
+        + (f'<br><span style="color:#555">💡 {uwaga}</span>' if uwaga else "")
+        + "</div>",
+        unsafe_allow_html=True,
+    )
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ZAKŁADKI
+# ═══════════════════════════════════════════════════════════════════════════
 tabs = st.tabs([
     "📋 Nagłówek",
     "🏢 Część A — Płatnik",
     "🌍 Część B — Podatnik",
-    "📊 Zestawienie JPK_FA",
+    "📊 Zestawienie JPK",
     "📂 Sekcje D–Q",
-    "🔧 Informacje uzup.",
+    "🔧 Uzupełnienia",
     "💾 Generuj XML",
 ])
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# TAB 1: NAGŁÓWEK
-# ─────────────────────────────────────────────────────────────────────────────
+# ── TAB 1: NAGŁÓWEK ─────────────────────────────────────────────────────────
 with tabs[0]:
     st.subheader("Nagłówek deklaracji")
 
-    col1, col2 = st.columns(2)
+    col1, col2 = st.columns([1, 1])
     with col1:
         cel = st.radio(
             "**Pole 7 — Cel złożenia**",
@@ -319,44 +362,48 @@ with tabs[0]:
             horizontal=True,
         )
         st.session_state.cel_zlozenia = cel
-
     with col2:
-        st.info("🏛️ **Urząd skarbowy (Pole 6)**\n\nLubelski Urząd Skarbowy w Lublinie\nKod: **0671** (stały dla wszystkich IFT-2R)")
+        st.markdown(
+            '<div class="info-box">🏛️ <b>Urząd skarbowy (Pole 6)</b><br>'
+            'Lubelski Urząd Skarbowy w Lublinie<br>'
+            '<b>Kod 0671</b> — stały dla wszystkich IFT-2R w Polsce</div>',
+            unsafe_allow_html=True,
+        )
 
     st.markdown("---")
     col3, col4 = st.columns(2)
     with col3:
         od = st.date_input(
-            "**Pole 4 — Data początku roku podatkowego**",
+            "**Pole 4 — Początek roku podatkowego**",
             value=datetime.strptime(st.session_state.okres_od, "%Y-%m-%d").date(),
         )
         st.session_state.okres_od = od.strftime("%Y-%m-%d")
     with col4:
-        do = st.date_input(
-            "**Pole 5 — Data końca roku podatkowego**",
+        do_d = st.date_input(
+            "**Pole 5 — Koniec roku podatkowego**",
             value=datetime.strptime(st.session_state.okres_do, "%Y-%m-%d").date(),
         )
-        st.session_state.okres_do = do.strftime("%Y-%m-%d")
+        st.session_state.okres_do = do_d.strftime("%Y-%m-%d")
 
-    rok = od.year
-    st.caption(f"ℹ️ Formularz za rok podatkowy: **{rok}**. Termin złożenia IFT-2R: do końca marca {rok + 1}.")
+    st.caption(
+        f"📅 Rok podatkowy: **{od.year}** · "
+        f"Termin złożenia IFT-2R: **31 marca {od.year + 1}**"
+    )
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# TAB 2: CZĘŚĆ A — PŁATNIK
-# ─────────────────────────────────────────────────────────────────────────────
+# ── TAB 2: CZĘŚĆ A — PŁATNIK ─────────────────────────────────────────────────
 with tabs[1]:
-    st.subheader("Część A — Dane płatnika / podmiotu wypłacającego")
-    st.caption("Pola 8–18. Dane pobierane automatycznie z GUS po podaniu NIP w sidebarze.")
+    st.subheader("Część A — Dane płatnika")
+    st.caption("Pola 1, 8–18. Kliknij 'Pobierz dane z MF API' w panelu bocznym aby wypełnić automatycznie.")
 
     col1, col2 = st.columns(2)
     with col1:
         st.session_state.platnik_nip = st.text_input(
-            "**Pole 1 — NIP płatnika**",
+            "**NIP płatnika (Pole 1)**",
             value=st.session_state.platnik_nip,
         )
         st.session_state.platnik_nazwa = st.text_input(
-            "**Pole 9 — Pełna nazwa**",
+            "**Pełna nazwa (Pole 9)**",
             value=st.session_state.platnik_nazwa,
         )
         st.session_state.platnik_regon = st.text_input(
@@ -365,236 +412,213 @@ with tabs[1]:
         )
     with col2:
         st.session_state.platnik_ulica = st.text_input("Ulica", value=st.session_state.platnik_ulica)
-        cola, colb = st.columns(2)
-        with cola:
+        ca, cb = st.columns(2)
+        with ca:
             st.session_state.platnik_nr_domu = st.text_input("Nr domu", value=st.session_state.platnik_nr_domu)
-        with colb:
+        with cb:
             st.session_state.platnik_nr_lokalu = st.text_input("Nr lokalu", value=st.session_state.platnik_nr_lokalu)
         st.session_state.platnik_miejscowosc = st.text_input("Miejscowość", value=st.session_state.platnik_miejscowosc)
-        colc, cold = st.columns(2)
-        with colc:
+        cc, cd = st.columns(2)
+        with cc:
             st.session_state.platnik_kod = st.text_input("Kod pocztowy", value=st.session_state.platnik_kod)
-        with cold:
-            st.session_state.platnik_kraj = st.text_input("Kod kraju", value=st.session_state.platnik_kraj)
+        with cd:
+            st.session_state.platnik_kraj = st.text_input("Kraj", value=st.session_state.platnik_kraj)
 
     with st.expander("Województwo / Powiat / Gmina"):
-        col_w, col_p, col_g = st.columns(3)
-        with col_w:
+        cw, cp, cg = st.columns(3)
+        with cw:
             st.session_state.platnik_wojewodztwo = st.text_input("Województwo", value=st.session_state.platnik_wojewodztwo)
-        with col_p:
+        with cp:
             st.session_state.platnik_powiat = st.text_input("Powiat", value=st.session_state.platnik_powiat)
-        with col_g:
+        with cg:
             st.session_state.platnik_gmina = st.text_input("Gmina", value=st.session_state.platnik_gmina)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# TAB 3: CZĘŚĆ B — PODATNIK ZAGRANICZNY
-# ─────────────────────────────────────────────────────────────────────────────
+# ── TAB 3: CZĘŚĆ B — PODATNIK ────────────────────────────────────────────────
 with tabs[2]:
-    st.subheader("Część B — Dane podatnika zagranicznego (odbiorcy należności)")
-    st.caption("Pola 19–32. Dane wczytywane automatycznie po wybraniu kontrahenta z JPK_FA w sidebarze.")
+    st.subheader("Część B — Dane podatnika zagranicznego")
+    st.caption("Pola 19–32. Wybierz kontrahenta ze słownika lub z JPK_FA w panelu bocznym.")
 
-    # Jeśli wybrany kontrahent — pokaż info
-    aktywny_słownik = st.session_state.get("_aktywny_slownik_klucz")
-    aktywny_klucz = st.session_state.aktywny_klucz
+    sk2 = st.session_state.get("_aktywny_slownik_klucz")
+    ak2 = st.session_state.aktywny_klucz
+    grupy2 = st.session_state.grupy_kontrahentow
 
-    if aktywny_słownik and aktywny_słownik in KONTRAHENCI:
-        sd = KONTRAHENCI[aktywny_słownik]
-        st.success(
-            f"{sd.get('logo','🌍')} Kontrahent ze słownika: **{sd['podatnik_nazwa']}** "
-            f"[{sd['podatnik_kraj']}] | ID: `{sd['podatnik_id']}`"
-        )
-        if sd.get("uwaga"):
-            st.info(f"💡 {sd['uwaga']}")
-    elif aktywny_klucz and aktywny_klucz in st.session_state.grupy_kontrahentow:
-        g = st.session_state.grupy_kontrahentow[aktywny_klucz]
-        st.success(
-            f"🌍 Kontrahent z JPK_FA: **{g['sprzedawca_nazwa']}** "
-            f"[{g['sprzedawca_kraj']}] | ID: `{g['sprzedawca_id']}`"
-        )
+    if sk2 and sk2 in KONTRAHENCI:
+        sd2 = KONTRAHENCI[sk2]
+        st.success(f"{sd2.get('logo','🌍')} Ze słownika: **{sd2['podatnik_nazwa']}** [{sd2['podatnik_kraj']}]")
+        if sd2.get("uwaga"):
+            st.markdown(f'<div class="info-box">💡 {sd2["uwaga"]}</div>', unsafe_allow_html=True)
+    elif ak2 and ak2 in grupy2:
+        g2 = grupy2[ak2]
+        st.success(f"📄 Z JPK_FA: **{g2['sprzedawca_nazwa']}** [{g2['sprzedawca_kraj']}]")
 
     col1, col2 = st.columns(2)
     with col1:
         st.session_state.podatnik_nazwa = st.text_input(
-            "**Pole 20 — Pełna nazwa podatnika**",
+            "**Pełna nazwa (Pole 20)**",
             value=st.session_state.podatnik_nazwa,
         )
         st.session_state.podatnik_kraj = st.text_input(
-            "**Pole 25 — Kraj siedziby (kod 2-znakowy)**",
+            "**Kraj siedziby — kod 2-znakowy (Pole 25)**",
             value=st.session_state.podatnik_kraj,
-            help="np. IE = Irlandia, DE = Niemcy, US = USA",
+            help="IE = Irlandia, DE = Niemcy, US = USA, NL = Holandia, LU = Luksemburg",
         )
-        rod_id = st.radio(
-            "**Pole 23 — Rodzaj identyfikacji**",
+        rod = st.radio(
+            "**Rodzaj identyfikacji (Pole 23)**",
             options=[1, 2],
-            format_func=lambda x: "1 — podatkowy (VAT ID, NIP)" if x == 1 else "2 — inny",
+            format_func=lambda x: "1 — podatkowy (VAT ID)" if x == 1 else "2 — inny",
             index=st.session_state.podatnik_rodzaj_id - 1,
             horizontal=True,
         )
-        st.session_state.podatnik_rodzaj_id = rod_id
+        st.session_state.podatnik_rodzaj_id = rod
         st.session_state.podatnik_id = st.text_input(
-            "**Pole 24 — Numer identyfikacyjny podatnika**",
+            "**Numer identyfikacyjny (Pole 24)**",
             value=st.session_state.podatnik_id,
         )
-
     with col2:
         st.markdown("**Adres siedziby (Pola 27–32)**")
-        st.session_state.podatnik_ulica = st.text_input("Ulica", value=st.session_state.podatnik_ulica, key="pod_ulica")
-        st.session_state.podatnik_nr_domu = st.text_input("Nr domu", value=st.session_state.podatnik_nr_domu, key="pod_nr")
-        st.session_state.podatnik_miejscowosc = st.text_input("Miejscowość", value=st.session_state.podatnik_miejscowosc, key="pod_msc")
-        st.session_state.podatnik_kod = st.text_input("Kod pocztowy", value=st.session_state.podatnik_kod, key="pod_kod")
+        st.session_state.podatnik_ulica = st.text_input(
+            "Ulica", value=st.session_state.podatnik_ulica, key="pod_ul")
+        st.session_state.podatnik_nr_domu = st.text_input(
+            "Nr domu", value=st.session_state.podatnik_nr_domu, key="pod_nr")
+        st.session_state.podatnik_miejscowosc = st.text_input(
+            "Miejscowość", value=st.session_state.podatnik_miejscowosc, key="pod_msc")
+        st.session_state.podatnik_kod = st.text_input(
+            "Kod pocztowy", value=st.session_state.podatnik_kod, key="pod_kod")
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# TAB 4: ZESTAWIENIE JPK_FA
-# ─────────────────────────────────────────────────────────────────────────────
+# ── TAB 4: ZESTAWIENIE JPK ───────────────────────────────────────────────────
 with tabs[3]:
     st.subheader("Zestawienie faktur z pliku JPK_FA")
 
-    grupy = st.session_state.grupy_kontrahentow
-
-    if not grupy:
-        st.info("⬆️ Wczytaj pliki JPK_FA w sidebarze, a tutaj pojawi się zestawienie faktur.")
+    grupy3 = st.session_state.grupy_kontrahentow
+    if not grupy3:
+        st.markdown(
+            '<div class="info-box">⬆️ Wczytaj pliki JPK_FA w panelu bocznym, '
+            'a tutaj pojawi się zestawienie faktur od zagranicznych kontrahentów.</div>',
+            unsafe_allow_html=True,
+        )
     else:
-        # Wybór kontrahenta
-        opcje = {k: f"{g['sprzedawca_nazwa']} [{g['sprzedawca_kraj']}]" for k, g in grupy.items()}
+        opcje = {k: f"{g['sprzedawca_nazwa']} [{g['sprzedawca_kraj']}]" for k, g in grupy3.items()}
+        ak3 = st.session_state.aktywny_klucz
+        idx = list(opcje.keys()).index(ak3) if ak3 in opcje else 0
         wybrany = st.selectbox(
-            "Wybierz kontrahenta:",
+            "Kontrahent:",
             options=list(opcje.keys()),
             format_func=lambda k: opcje[k],
-            index=list(opcje.keys()).index(aktywny_klucz) if aktywny_klucz in opcje else 0,
+            index=idx,
         )
-
         if wybrany:
             st.session_state.aktywny_klucz = wybrany
-            g = grupy[wybrany]
+            g3 = grupy3[wybrany]
 
-            col1, col2, col3 = st.columns(3)
-            col1.metric("Liczba faktur", g["liczba_faktur"])
-            col2.metric("Suma netto", f"{g['suma_netto']:.2f} {g['waluta']}")
-            col3.metric("Suma brutto", f"{g['suma_brutto']:.2f} {g['waluta']}")
+            c1, c2, c3 = st.columns(3)
+            c1.metric("Faktur", g3["liczba_faktur"])
+            c2.metric("Suma netto", f"{g3['suma_netto']:.2f} {g3['waluta']}")
+            c3.metric("Suma brutto", f"{g3['suma_brutto']:.2f} {g3['waluta']}")
 
             st.markdown("---")
-            st.markdown("**Szczegółowe faktury:**")
-
             import pandas as pd
-            rows = []
-            for f in g["faktury"]:
-                rows.append({
-                    "Numer faktury": f.numer,
-                    "Data wystawienia": f.data_wystawienia,
-                    "Data sprzedaży": f.data_sprzedazy,
-                    "Sprzedawca": f.sprzedawca_nazwa,
-                    "Kraj": f.sprzedawca_kraj,
-                    "Waluta": f.waluta,
-                    "Netto": float(f.netto),
-                    "VAT": float(f.vat),
-                    "Brutto": float(f.brutto),
-                    "Plik JPK": f.zrodlo_plik,
-                })
+            rows = [{
+                "Nr faktury": f.numer,
+                "Data wystawienia": f.data_wystawienia,
+                "Sprzedawca": f.sprzedawca_nazwa,
+                "Kraj": f.sprzedawca_kraj,
+                "ID sprzedawcy": f.sprzedawca_id,
+                "Waluta": f.waluta,
+                "Netto": float(f.netto),
+                "VAT": float(f.vat),
+                "Brutto": float(f.brutto),
+                "Plik": f.zrodlo_plik,
+            } for f in g3["faktury"]]
+            st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 
-            df = pd.DataFrame(rows)
-            st.dataframe(df, use_container_width=True, hide_index=True)
-
-            # Suma
-            st.markdown(f"**Suma netto:** `{g['suma_netto']:.2f}` {g['waluta']}  |  "
-                        f"**Suma brutto:** `{g['suma_brutto']:.2f}` {g['waluta']}")
-
-            st.markdown("---")
-            st.info(
-                "💡 Przejdź do zakładki **Sekcje D–Q**, aby przypisać te kwoty do odpowiedniej kategorii IFT-2R "
-                "(np. sekcja K dla usług reklamowych Google, Meta, itp.)"
+            st.markdown(
+                '<div class="info-box">💡 Przejdź do zakładki <b>Sekcje D–Q</b>, '
+                'aby przypisać sumę netto do właściwej kategorii IFT-2R.<br>'
+                'Dla usług Google/Meta/LinkedIn → <b>sekcja K</b> (art. 21 ust. 1 pkt 2a).</div>',
+                unsafe_allow_html=True,
             )
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# TAB 5: SEKCJE D–Q
-# ─────────────────────────────────────────────────────────────────────────────
+# ── TAB 5: SEKCJE D–Q ────────────────────────────────────────────────────────
 with tabs[4]:
     st.subheader("Część D — Rodzaje przychodów i wysokość pobranego podatku")
-    st.caption(
-        "Dodaj wpisy dla każdej kategorii przychodu. "
-        "Dla Google/Meta/LinkedIn to zazwyczaj **sekcja K** (usługi niematerialne, art. 21 ust. 1 pkt 2a)."
-    )
 
-    # Pomocnik szybkiego wpisania sumy z JPK
-    grupy = st.session_state.grupy_kontrahentow
-    aktywny_klucz = st.session_state.aktywny_klucz
-    if grupy and aktywny_klucz and aktywny_klucz in grupy:
-        g = grupy[aktywny_klucz]
-        suma_netto = g["suma_netto"]
+    grupy4 = st.session_state.grupy_kontrahentow
+    ak4 = st.session_state.aktywny_klucz
+    suma_netto = Decimal("0")
+    if grupy4 and ak4 and ak4 in grupy4:
+        suma_netto = grupy4[ak4]["suma_netto"]
+        g4 = grupy4[ak4]
         st.markdown(
-            f'<div class="sekcja-card">💡 Kontrahent: <b>{g["sprzedawca_nazwa"]}</b> '
-            f'— suma netto z JPK_FA: <span class="kwota-total">{suma_netto:.2f} {g["waluta"]}</span></div>',
+            f'<div class="sekcja-card">'
+            f'📄 <b>{g4["sprzedawca_nazwa"]}</b> [{g4["sprzedawca_kraj"]}] — '
+            f'suma netto z JPK_FA: <span class="kwota-big">{suma_netto:.2f} {g4["waluta"]}</span>'
+            f'</div>',
             unsafe_allow_html=True,
         )
 
-    # Formularz nowego wpisu
-    with st.expander("➕ Dodaj wpis do sekcji D", expanded=True):
+    # Domyślna sekcja ze słownika
+    sk5 = st.session_state.get("_aktywny_slownik_klucz")
+    dom_sek = "K"
+    dom_stk = 20
+    if sk5 and sk5 in KONTRAHENCI:
+        dom_sek = KONTRAHENCI[sk5].get("domyslna_sekcja", "K")
+        dom_stk = KONTRAHENCI[sk5].get("domyslna_stawka", 20)
+
+    with st.expander("➕ Dodaj wpis", expanded=True):
         opcje_sek = {k: f"{k} — {v['opis']}" for k, v in SEKCJE_D.items()}
-
-        # Domyślna sekcja ze słownika kontrahentów
-        aktywny_słownik = st.session_state.get("_aktywny_slownik_klucz")
-        domyslna_sek = "K"
-        domyslna_stawka_sek = 20
-        if aktywny_słownik and aktywny_słownik in KONTRAHENCI:
-            domyslna_sek = KONTRAHENCI[aktywny_słownik].get("domyslna_sekcja", "K")
-            domyslna_stawka_sek = KONTRAHENCI[aktywny_słownik].get("domyslna_stawka", 20)
-
         col1, col2 = st.columns([1, 3])
         with col1:
             sym = st.selectbox(
-                "Symbol sekcji",
+                "Sekcja",
                 options=list(opcje_sek.keys()),
                 format_func=lambda k: opcje_sek[k],
-                index=list(opcje_sek.keys()).index(domyslna_sek),
+                index=list(opcje_sek.keys()).index(dom_sek),
             )
         with col2:
-            st.caption(SEKCJE_D[sym]["opis"])
+            st.caption(f"📌 {SEKCJE_D[sym]['opis']}")
 
-        col3, col4, col5, col6 = st.columns(4)
-        with col3:
-            domysl_netto = float(suma_netto) if (grupy and aktywny_klucz and aktywny_klucz in grupy) else 0.0
+        c3, c4, c5, c6 = st.columns(4)
+        with c3:
             zwolniony = st.number_input(
-                "Kwota zwolniona z opodatkowania (kol. c)",
+                "Kwota zwolniona (kol. c)",
                 min_value=0.0,
-                value=domysl_netto,
+                value=float(suma_netto),
                 step=0.01,
                 format="%.2f",
-                help="Kwota przychodu zwolnionego na podstawie UPO (certyfikat rezydencji). "
-                     "Dla Google/Meta/LinkedIn zazwyczaj = suma netto wszystkich faktur.",
+                help="Kwota przychodu zwolnionego z opodatkowania (UPO / certyfikat rezydencji).",
             )
-        with col4:
+        with c4:
             opodatkowany = st.number_input(
                 "Kwota opodatkowana (kol. d)",
                 min_value=0.0,
                 value=0.0,
                 step=0.01,
                 format="%.2f",
-                help="Kwota przychodu, od której pobrano podatek.",
             )
-        with col5:
-            max_stawka = SEKCJE_D[sym]["max_stawka"]
-            # Domyślna stawka: ze słownika kontrahenta lub max dla sekcji
-            domyslna_stk = min(float(domyslna_stawka_sek), float(max_stawka))
+        with c5:
+            max_stk = float(SEKCJE_D[sym]["max_stawka"])
+            dom_stk_val = min(float(dom_stk), max_stk)
             stawka = st.number_input(
-                f"Stawka podatku % (max {max_stawka}%)",
+                f"Stawka % (max {int(max_stk)})",
                 min_value=0.0,
-                max_value=float(max_stawka),
-                value=domyslna_stk,
+                max_value=max_stk,
+                value=dom_stk_val,
                 step=1.0,
                 format="%.0f",
             )
-        with col6:
+        with c6:
             podatek = st.number_input(
-                "Kwota pobranego podatku (kol. e)",
+                "Pobrany podatek (kol. e)",
                 min_value=0.0,
                 value=0.0,
                 step=0.01,
                 format="%.2f",
             )
 
-        if st.button("➕ Dodaj do listy", type="primary"):
+        if st.button("➕ Dodaj pozycję", type="primary"):
             st.session_state.sekcje.append({
                 "symbol": sym,
                 "opis": SEKCJE_D[sym]["opis"],
@@ -603,188 +627,147 @@ with tabs[4]:
                 "stawka": f"{stawka:.0f}",
                 "podatek": f"{podatek:.2f}",
             })
-            st.success(f"✅ Dodano wpis sekcja {sym}")
+            st.success(f"✅ Dodano — sekcja {sym}")
 
-    # Lista wpisów
-    sekcje = st.session_state.sekcje
-    if sekcje:
+    if st.session_state.sekcje:
         st.markdown("---")
-        st.markdown("**Wpisane pozycje:**")
-        for i, s in enumerate(sekcje):
-            col_s, col_del = st.columns([9, 1])
-            with col_s:
+        st.markdown("**Dodane pozycje:**")
+        for i, s in enumerate(st.session_state.sekcje):
+            cs, cd = st.columns([11, 1])
+            with cs:
                 st.markdown(
                     f'<div class="sekcja-card">'
-                    f'<b>Sekcja {s["symbol"]}</b>: {s["opis"]}<br>'
-                    f'Zwolniony: <b>{s["zwolniony"]}</b> | '
-                    f'Opodatkowany: <b>{s["opodatkowany"]}</b> | '
-                    f'Stawka: <b>{s["stawka"]}%</b> | '
+                    f'<b>Sekcja {s["symbol"]}</b> &nbsp;·&nbsp; {s["opis"]}<br>'
+                    f'Zwolniony: <b>{s["zwolniony"]}</b> &nbsp;|&nbsp; '
+                    f'Opodatkowany: <b>{s["opodatkowany"]}</b> &nbsp;|&nbsp; '
+                    f'Stawka: <b>{s["stawka"]}%</b> &nbsp;|&nbsp; '
                     f'Podatek: <b>{s["podatek"]}</b>'
                     f'</div>',
                     unsafe_allow_html=True,
                 )
-            with col_del:
-                if st.button("🗑️", key=f"del_sek_{i}", help="Usuń wpis"):
+            with cd:
+                if st.button("🗑", key=f"del_{i}"):
                     st.session_state.sekcje.pop(i)
                     st.rerun()
 
-        # Sumy
         st.markdown("---")
-        tot_zwol = sum(Decimal(s["zwolniony"]) for s in sekcje)
-        tot_opod = sum(Decimal(s["opodatkowany"]) for s in sekcje)
-        tot_pod = sum(Decimal(s["podatek"]) for s in sekcje)
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Razem zwolniony", f"{tot_zwol:.2f}")
-        c2.metric("Razem opodatkowany", f"{tot_opod:.2f}")
-        c3.metric("Razem podatek", f"{tot_pod:.2f}")
-    else:
-        st.info("Brak wpisów. Dodaj co najmniej jeden wpis powyżej.")
+        t_zw = sum(Decimal(s["zwolniony"]) for s in st.session_state.sekcje)
+        t_op = sum(Decimal(s["opodatkowany"]) for s in st.session_state.sekcje)
+        t_po = sum(Decimal(s["podatek"]) for s in st.session_state.sekcje)
+        tc1, tc2, tc3 = st.columns(3)
+        tc1.metric("Razem zwolniony", f"{t_zw:.2f}")
+        tc2.metric("Razem opodatkowany", f"{t_op:.2f}")
+        tc3.metric("Razem podatek", f"{t_po:.2f}")
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# TAB 6: INFORMACJE UZUPEŁNIAJĄCE
-# ─────────────────────────────────────────────────────────────────────────────
+# ── TAB 6: UZUPEŁNIENIA ──────────────────────────────────────────────────────
 with tabs[5]:
-    st.subheader("Sekcja R, S, T, U — Informacje uzupełniające")
+    st.subheader("Informacje uzupełniające (R, S, T, U)")
 
     col1, col2 = st.columns(2)
     with col1:
-        lm = st.number_input(
-            "**Pole 120 — Liczba miesięcy roku podatkowego**",
-            min_value=1,
-            max_value=24,
-            value=st.session_state.liczba_miesiecy,
-        )
+        lm = st.number_input("**Pole 120 — Liczba miesięcy roku podatkowego**",
+                             min_value=1, max_value=24, value=st.session_state.liczba_miesiecy)
         st.session_state.liczba_miesiecy = lm
-
-        dw = st.text_input(
-            "**Pole 121 — Data złożenia wniosku przez podatnika**",
-            value=st.session_state.data_wniosku,
-            placeholder="YYYY-MM-DD (jeśli dotyczy)",
-        )
-        st.session_state.data_wniosku = dw
-
-        dp = st.text_input(
+        st.session_state.data_wniosku = st.text_input(
+            "**Pole 121 — Data wniosku podatnika** (opcjonalne)",
+            value=st.session_state.data_wniosku, placeholder="YYYY-MM-DD")
+        st.session_state.data_przekazania = st.text_input(
             "**Pole 122 — Data przekazania informacji podatnikowi**",
-            value=st.session_state.data_przekazania,
-            placeholder="YYYY-MM-DD",
-        )
-        st.session_state.data_przekazania = dp
-
+            value=st.session_state.data_przekazania, placeholder="YYYY-MM-DD")
     with col2:
         st.session_state.podpisujacy_imie = st.text_input(
             "**Pole 123 — Imię osoby podpisującej**",
-            value=st.session_state.podpisujacy_imie,
-        )
+            value=st.session_state.podpisujacy_imie)
         st.session_state.podpisujacy_nazwisko = st.text_input(
-            "**Pole 124 — Nazwisko osoby podpisującej**",
-            value=st.session_state.podpisujacy_nazwisko,
-        )
+            "**Pole 124 — Nazwisko**",
+            value=st.session_state.podpisujacy_nazwisko)
         st.session_state.telefon = st.text_input(
-            "**Pole 128 — Telefon kontaktowy**",
-            value=st.session_state.telefon,
-        )
+            "**Pole 128 — Telefon**", value=st.session_state.telefon)
         st.session_state.email = st.text_input(
-            "**Pole 129 — E-mail kontaktowy**",
-            value=st.session_state.email,
-        )
+            "**Pole 129 — E-mail**", value=st.session_state.email)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# TAB 7: GENERUJ XML
-# ─────────────────────────────────────────────────────────────────────────────
+# ── TAB 7: GENERUJ XML ───────────────────────────────────────────────────────
 with tabs[6]:
     st.subheader("Generowanie pliku XML IFT-2R")
 
-    # Walidacja
-    bledy_walidacji = []
+    bledy = []
     if not st.session_state.platnik_nip:
-        bledy_walidacji.append("❌ Brak NIP płatnika (Część A).")
+        bledy.append("Brak NIP płatnika — wypełnij Część A.")
     if not st.session_state.platnik_nazwa:
-        bledy_walidacji.append("❌ Brak nazwy płatnika (Część A).")
+        bledy.append("Brak nazwy płatnika — wypełnij Część A.")
     if not st.session_state.podatnik_nazwa:
-        bledy_walidacji.append("❌ Brak nazwy podatnika zagranicznego (Część B).")
+        bledy.append("Brak nazwy podatnika zagranicznego — wypełnij Część B.")
     if not st.session_state.podatnik_kraj:
-        bledy_walidacji.append("❌ Brak kodu kraju podatnika (Część B).")
+        bledy.append("Brak kodu kraju podatnika — wypełnij Część B.")
     if not st.session_state.podatnik_id:
-        bledy_walidacji.append("❌ Brak numeru identyfikacyjnego podatnika (Część B).")
+        bledy.append("Brak numeru identyfikacyjnego podatnika — wypełnij Część B.")
     if not st.session_state.sekcje:
-        bledy_walidacji.append("❌ Brak wpisów w sekcjach D (Zakładka 'Sekcje D–Q').")
+        bledy.append("Brak pozycji w sekcji D — dodaj przynajmniej jedną pozycję.")
 
-    if bledy_walidacji:
-        for b in bledy_walidacji:
-            st.error(b)
+    if bledy:
+        for b in bledy:
+            st.error(f"❌ {b}")
     else:
-        st.success("✅ Wszystkie wymagane pola są wypełnione. Możesz wygenerować XML.")
+        st.markdown(
+            '<div class="info-box">✅ Wszystkie wymagane pola wypełnione. Możesz wygenerować plik XML.</div>',
+            unsafe_allow_html=True,
+        )
 
-    col_gen, col_blank = st.columns([1, 2])
-    with col_gen:
-        generuj = st.button("🔄 Generuj XML", type="primary", use_container_width=True, disabled=bool(bledy_walidacji))
+    if st.button("🔄 Generuj XML", type="primary", disabled=bool(bledy)):
+        dane = {
+            "cel_zlozenia": st.session_state.cel_zlozenia,
+            "okres_od": st.session_state.okres_od,
+            "okres_do": st.session_state.okres_do,
+            "platnik_nip": st.session_state.platnik_nip,
+            "platnik_nazwa": st.session_state.platnik_nazwa,
+            "platnik_regon": st.session_state.platnik_regon,
+            "platnik_kraj": st.session_state.platnik_kraj,
+            "platnik_wojewodztwo": st.session_state.platnik_wojewodztwo,
+            "platnik_powiat": st.session_state.platnik_powiat,
+            "platnik_gmina": st.session_state.platnik_gmina,
+            "platnik_ulica": st.session_state.platnik_ulica,
+            "platnik_nr_domu": st.session_state.platnik_nr_domu,
+            "platnik_nr_lokalu": st.session_state.platnik_nr_lokalu,
+            "platnik_miejscowosc": st.session_state.platnik_miejscowosc,
+            "platnik_kod": st.session_state.platnik_kod,
+            "podatnik_nazwa": st.session_state.podatnik_nazwa,
+            "podatnik_kraj": st.session_state.podatnik_kraj,
+            "podatnik_id": st.session_state.podatnik_id,
+            "podatnik_rodzaj_id": st.session_state.podatnik_rodzaj_id,
+            "podatnik_ulica": st.session_state.podatnik_ulica,
+            "podatnik_nr_domu": st.session_state.podatnik_nr_domu,
+            "podatnik_miejscowosc": st.session_state.podatnik_miejscowosc,
+            "podatnik_kod": st.session_state.podatnik_kod,
+            "sekcje": st.session_state.sekcje,
+            "liczba_miesiecy": st.session_state.liczba_miesiecy,
+        }
+        try:
+            xml_out = generuj_xml(dane)
+            st.session_state.xml_wygenerowany = xml_out
+        except Exception as e:
+            st.error(f"Błąd generowania: {e}")
 
-    if generuj or "xml_wygenerowany" in st.session_state:
-        if generuj:
-            # Zbierz dane
-            dane = {
-                "cel_zlozenia": st.session_state.cel_zlozenia,
-                "okres_od": st.session_state.okres_od,
-                "okres_do": st.session_state.okres_do,
-                "platnik_nip": st.session_state.platnik_nip,
-                "platnik_nazwa": st.session_state.platnik_nazwa,
-                "platnik_regon": st.session_state.platnik_regon,
-                "platnik_kraj": st.session_state.platnik_kraj,
-                "platnik_wojewodztwo": st.session_state.platnik_wojewodztwo,
-                "platnik_powiat": st.session_state.platnik_powiat,
-                "platnik_gmina": st.session_state.platnik_gmina,
-                "platnik_ulica": st.session_state.platnik_ulica,
-                "platnik_nr_domu": st.session_state.platnik_nr_domu,
-                "platnik_nr_lokalu": st.session_state.platnik_nr_lokalu,
-                "platnik_miejscowosc": st.session_state.platnik_miejscowosc,
-                "platnik_kod": st.session_state.platnik_kod,
-                "podatnik_nazwa": st.session_state.podatnik_nazwa,
-                "podatnik_kraj": st.session_state.podatnik_kraj,
-                "podatnik_id": st.session_state.podatnik_id,
-                "podatnik_rodzaj_id": st.session_state.podatnik_rodzaj_id,
-                "podatnik_ulica": st.session_state.podatnik_ulica,
-                "podatnik_nr_domu": st.session_state.podatnik_nr_domu,
-                "podatnik_miejscowosc": st.session_state.podatnik_miejscowosc,
-                "podatnik_kod": st.session_state.podatnik_kod,
-                "sekcje": st.session_state.sekcje,
-                "liczba_miesiecy": st.session_state.liczba_miesiecy,
-            }
+    if st.session_state.xml_wygenerowany:
+        nip_p = st.session_state.platnik_nip
+        rok = st.session_state.okres_od[:4]
+        nazwa_pliku = f"IFT-2R_{nip_p}_{rok}.xml"
 
-            try:
-                xml_output = generuj_xml(dane)
-                st.session_state.xml_wygenerowany = xml_output
-                st.session_state.xml_blad = None
-            except Exception as e:
-                st.session_state.xml_blad = str(e)
-                st.session_state.xml_wygenerowany = None
-
-        xml_out = st.session_state.get("xml_wygenerowany")
-        xml_blad = st.session_state.get("xml_blad")
-
-        if xml_blad:
-            st.error(f"Błąd generowania XML: {xml_blad}")
-        elif xml_out:
-            # Nazwa pliku
-            nip_p = st.session_state.platnik_nip
-            rok = st.session_state.okres_od[:4]
-            nazwa_pliku = f"IFT-2R_{nip_p}_{rok}.xml"
-
-            st.download_button(
-                label="⬇️ Pobierz XML IFT-2R",
-                data=xml_out.encode("utf-8"),
-                file_name=nazwa_pliku,
-                mime="application/xml",
-                type="primary",
-                use_container_width=False,
-            )
-
-            st.markdown("---")
-            st.markdown("**Podgląd XML:**")
-            st.code(xml_out, language="xml")
-
-            st.caption(
-                "📌 Pamiętaj: po pobraniu XML otwórz go w aplikacji **e-Deklaracje** lub interaktywnym formularzu PDF "
-                "z MF, zweryfikuj dane i wyślij z kwalifikowanym podpisem elektronicznym do Lubelskiego US."
-            )
+        st.download_button(
+            label="⬇️ Pobierz plik XML",
+            data=st.session_state.xml_wygenerowany.encode("utf-8"),
+            file_name=nazwa_pliku,
+            mime="application/xml",
+            type="primary",
+        )
+        st.markdown("---")
+        st.code(st.session_state.xml_wygenerowany, language="xml")
+        st.markdown(
+            '<div class="warn-box">'
+            '📌 <b>Pamiętaj:</b> wygenerowany plik XML wyślij przez system <b>e-Deklaracje</b> '
+            'do <b>Lubelskiego Urzędu Skarbowego w Lublinie</b> z <b>kwalifikowanym podpisem elektronicznym</b>. '
+            'Termin: do końca marca roku następującego po roku podatkowym.'
+            '</div>',
+            unsafe_allow_html=True,
+        )

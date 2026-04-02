@@ -1,128 +1,92 @@
-"""Pobieranie danych firmy z API GUS REGON (BIR) po numerze NIP."""
+"""
+Pobieranie danych firmy po NIP z API Ministerstwa Finansów (Biała Lista VAT).
 
+Nie wymaga żadnego klucza API — działa bez rejestracji.
+Endpoint: https://wl-api.mf.gov.pl/api/search/nip/{NIP}?date={YYYY-MM-DD}
+"""
+
+import re
 import requests
-import xml.etree.ElementTree as ET
-from typing import Optional
+from datetime import date
 
 
-# Klucz API – użytkownik powinien wpisać swój w UI lub env
-KLUCZ_API_TESTOWY = "abcde12345abcde12345"  # testowy klucz GUS
-
-WSDL_URL = "https://wyszukiwarkaregon.stat.gov.pl/wsBIR/UslugaBIRzewnPubl.svc"
+MF_API_URL = "https://wl-api.mf.gov.pl/api/search/nip/{nip}?date={data}"
 
 
-def _soap(action: str, body: str, sid: str = "") -> str:
-    headers = {
-        "Content-Type": "application/soap+xml; charset=utf-8",
-        "SOAPAction": f"http://CIS/BIR/PUBL/2014/07/IUslugaBIRzewnPubl/{action}",
-    }
-    if sid:
-        headers["sid"] = sid
+def _parse_adres(adres_str: str) -> dict:
+    """Rozkłada adres 'ul. Przykładowa 1, 00-000 Miasto' na składowe."""
+    result = {"ulica": "", "nr_domu": "", "nr_lokalu": "", "kod": "", "miejscowosc": ""}
+    if not adres_str:
+        return result
 
-    envelope = f"""<?xml version="1.0" encoding="utf-8"?>
-<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope"
-               xmlns:ns="http://CIS/BIR/PUBL/2014/07">
-  <soap:Header>
-    <ns:guid>{sid}</ns:guid>
-  </soap:Header>
-  <soap:Body>
-    {body}
-  </soap:Body>
-</soap:Envelope>"""
+    m = re.search(r"(\d{2}-\d{3})\s+(.+)$", adres_str)
+    if m:
+        result["kod"] = m.group(1)
+        result["miejscowosc"] = m.group(2).strip()
+        adres_str = adres_str[:m.start()].strip().rstrip(",").strip()
 
-    resp = requests.post(WSDL_URL, data=envelope.encode("utf-8"), headers=headers, timeout=15)
-    resp.raise_for_status()
-    return resp.text
+    adres_str = re.sub(r"^(ul\.|al\.|pl\.|os\.|rondo\s)\s*", "", adres_str, flags=re.IGNORECASE)
 
+    m2 = re.search(r"\s+([\d]+[a-zA-Z]?(?:/[\d]+[a-zA-Z]?)?)$", adres_str)
+    if m2:
+        numer = m2.group(1)
+        if "/" in numer:
+            czesci = numer.split("/", 1)
+            result["nr_domu"] = czesci[0]
+            result["nr_lokalu"] = czesci[1]
+        else:
+            result["nr_domu"] = numer
+        result["ulica"] = adres_str[:m2.start()].strip()
+    else:
+        result["ulica"] = adres_str
 
-def _zaloguj(klucz: str) -> str:
-    body = f"""<ns:Zaloguj xmlns:ns="http://CIS/BIR/PUBL/2014/07">
-      <ns:pKluczUzytkownika>{klucz}</ns:pKluczUzytkownika>
-    </ns:Zaloguj>"""
-    resp = _soap("Zaloguj", body)
-    root = ET.fromstring(resp)
-    el = root.find(".//{http://CIS/BIR/PUBL/2014/07}ZalogujResult")
-    return el.text.strip() if el is not None and el.text else ""
+    return result
 
 
-def _wyloguj(sid: str):
-    body = f"""<ns:Wyloguj xmlns:ns="http://CIS/BIR/PUBL/2014/07">
-      <ns:pIdentyfikatorSesji>{sid}</ns:pIdentyfikatorSesji>
-    </ns:Wyloguj>"""
-    try:
-        _soap("Wyloguj", body, sid)
-    except Exception:
-        pass
-
-
-def _szukaj_nip(nip: str, sid: str) -> str:
-    body = f"""<ns:DaneSzukajPodmioty xmlns:ns="http://CIS/BIR/PUBL/2014/07">
-      <ns:pParametryWyszukiwania>
-        <dat:NIP xmlns:dat="http://CIS/BIR/PUBL/2014/07/DataContract">{nip}</dat:NIP>
-      </ns:pParametryWyszukiwania>
-    </ns:DaneSzukajPodmioty>"""
-    resp = _soap("DaneSzukajPodmioty", body, sid)
-    root = ET.fromstring(resp)
-    el = root.find(".//{http://CIS/BIR/PUBL/2014/07}DaneSzukajPodmiotyResult")
-    return el.text.strip() if el is not None and el.text else ""
-
-
-def _parse_podmiot(xml_str: str) -> dict:
-    """Parsuje XML z danymi podmiotu i zwraca słownik."""
-    if not xml_str:
-        return {}
-    try:
-        root = ET.fromstring(xml_str)
-    except ET.ParseError:
-        return {}
-
-    def t(tag: str) -> str:
-        el = root.find(f".//{tag}")
-        return el.text.strip() if el is not None and el.text else ""
-
-    return {
-        "regon": t("Regon"),
-        "nip": t("Nip"),
-        "nazwa": t("Nazwa"),
-        "wojewodztwo": t("Wojewodztwo"),
-        "powiat": t("Powiat"),
-        "gmina": t("Gmina"),
-        "miejscowosc": t("MiejscowoscNazwa"),
-        "kod_pocztowy": t("KodPocztowy"),
-        "ulica": t("UlicaNazwa"),
-        "nr_nieruchomosci": t("NrNieruchomosci"),
-        "nr_lokalu": t("NrLokalu"),
-        "typ": t("Typ"),  # P=prawna, F=fizyczna
-    }
-
-
-def pobierz_dane_nip(nip: str, klucz: str = KLUCZ_API_TESTOWY) -> dict:
+def pobierz_dane_nip(nip: str, _klucz: str = "") -> dict:
     """
-    Pobiera dane firmy z GUS REGON API.
-
-    Zwraca słownik z kluczami: nazwa, regon, nip, adres...
-    Przy błędzie zwraca {"blad": "..."}
+    Pobiera dane firmy z API MF (Biała Lista VAT) po numerze NIP.
+    Nie wymaga klucza API.
+    Zwraca dict z kluczami: nazwa, regon, nip, ulica, nr_nieruchomosci,
+    nr_lokalu, kod_pocztowy, miejscowosc; lub {"blad": "..."} przy błędzie.
     """
     nip_clean = nip.replace("-", "").replace(" ", "").strip()
-    if len(nip_clean) != 10:
-        return {"blad": "Nieprawidłowy NIP – powinien mieć 10 cyfr."}
+    if len(nip_clean) != 10 or not nip_clean.isdigit():
+        return {"blad": "Nieprawidłowy NIP — powinien mieć dokładnie 10 cyfr."}
+
+    dzis = date.today().strftime("%Y-%m-%d")
+    url = MF_API_URL.format(nip=nip_clean, data=dzis)
 
     try:
-        sid = _zaloguj(klucz)
-        if not sid:
-            return {"blad": "Nie można zalogować do API GUS. Sprawdź klucz API."}
-
-        xml_wynik = _szukaj_nip(nip_clean, sid)
-        _wyloguj(sid)
-
-        if not xml_wynik:
-            return {"blad": f"Nie znaleziono podmiotu o NIP {nip_clean}."}
-
-        return _parse_podmiot(xml_wynik)
-
+        resp = requests.get(url, timeout=10)
+        if resp.status_code == 404:
+            return {"blad": f"Nie znaleziono podmiotu o NIP {nip_clean} w bazie MF."}
+        resp.raise_for_status()
+        data = resp.json()
     except requests.exceptions.Timeout:
-        return {"blad": "Timeout – API GUS nie odpowiada."}
+        return {"blad": "Timeout — API MF nie odpowiada. Spróbuj ponownie."}
     except requests.exceptions.ConnectionError:
-        return {"blad": "Brak połączenia z API GUS."}
+        return {"blad": "Brak połączenia z API MF (wl-api.mf.gov.pl)."}
     except Exception as e:
-        return {"blad": f"Błąd API GUS: {e}"}
+        return {"blad": f"Błąd: {e}"}
+
+    subject = data.get("result", {}).get("subject")
+    if not subject:
+        return {"blad": f"Brak danych dla NIP {nip_clean}."}
+
+    adres_str = subject.get("workingAddress") or subject.get("residenceAddress") or ""
+    adres = _parse_adres(adres_str)
+
+    return {
+        "nip": nip_clean,
+        "nazwa": subject.get("name", ""),
+        "regon": subject.get("regon", ""),
+        "ulica": adres.get("ulica", ""),
+        "nr_nieruchomosci": adres.get("nr_domu", ""),
+        "nr_lokalu": adres.get("nr_lokalu", ""),
+        "kod_pocztowy": adres.get("kod", ""),
+        "miejscowosc": adres.get("miejscowosc", ""),
+        "wojewodztwo": "",
+        "powiat": "",
+        "gmina": "",
+    }
